@@ -1,11 +1,207 @@
-html, body {
-  margin: 0;
-  padding: 0;
-  min-height: 100%;
-  font-family: Arial, Helvetica, sans-serif;
-  background: #0f172a;
+"use client";
+
+import { useEffect, useRef, useState } from "react";
+import Phaser from "phaser";
+import { io } from "socket.io-client";
+
+type PlayerState = {
+  id?: string;
+  name: string;
+  x: number;
+  y: number;
+  money: number;
+  level: number;
+  experience: number;
+  hunger: number;
+  energy: number;
+  hygiene: number;
+  fun: number;
+  social: number;
+  bladder: number;
+  job: string;
+  location: string;
+};
+
+export default function Home() {
+  const gameRef = useRef<HTMLDivElement | null>(null);
+  const socketRef = useRef<any>(null);
+  const [playerName, setPlayerName] = useState("Player");
+  const [started, setStarted] = useState(false);
+  const [playerState, setPlayerState] = useState<PlayerState>({
+    name: "Player",
+    x: 120,
+    y: 120,
+    money: 2500,
+    level: 1,
+    experience: 0,
+    hunger: 100,
+    energy: 100,
+    hygiene: 100,
+    fun: 100,
+    social: 100,
+    bladder: 100,
+    job: "Unemployed",
+    location: "City Center",
+  });
+
+  useEffect(() => {
+    if (!started) return;
+
+    const socket = io("http://localhost:3001");
+    socketRef.current = socket;
+
+    socket.emit("create-player", { name: playerName });
+
+    socket.on("player-state", (state: PlayerState) => {
+      setPlayerState(state);
+    });
+
+    socket.on("players-update", (players: any[]) => {
+      const me = players.find((p) => p.id === socket.id);
+      if (me) {
+        setPlayerState({ ...me });
+      }
+    });
+
+    return () => {
+      socket.disconnect();
+    };
+  }, [started, playerName]);
+
+  useEffect(() => {
+    if (!started || !gameRef.current) return;
+
+    let playerRect: Phaser.GameObjects.Rectangle;
+    let otherPlayers = new Map<string, Phaser.GameObjects.Rectangle>();
+    let game: Phaser.Game;
+
+    const config: Phaser.Types.Core.GameConfig = {
+      type: Phaser.AUTO,
+      parent: gameRef.current,
+      width: 960,
+      height: 600,
+      backgroundColor: "#1f2937",
+      scene: {
+        create() {
+          const graphics = this.add.graphics();
+          graphics.fillStyle(0x2d6cdf, 1);
+          graphics.fillRect(0, 0, 960, 600);
+
+          graphics.fillStyle(0x0f172a, 0.65);
+          graphics.fillRect(0, 0, 960, 70);
+
+          playerRect = this.add.rectangle(120, 120, 24, 24, 0x7dd3fc);
+          this.add.text(20, 20, "Life Sim Demo", {
+            fontSize: "26px",
+            color: "#e2e8f0",
+            fontFamily: "Arial",
+          });
+
+          const socket = socketRef.current;
+
+          socket.on("players-update", (players: any[]) => {
+            const currentIds = new Set<string>();
+
+            players.forEach((p) => {
+              currentIds.add(p.id);
+
+              if (p.id === socket.id) {
+                playerRect.x = p.x;
+                playerRect.y = p.y;
+                return;
+              }
+
+              if (!otherPlayers.has(p.id)) {
+                const sprite = this.add.rectangle(p.x, p.y, 24, 24, 0xfbbf24);
+                otherPlayers.set(p.id, sprite);
+              } else {
+                const sprite = otherPlayers.get(p.id)!;
+                sprite.x = p.x;
+                sprite.y = p.y;
+              }
+            });
+
+            for (const [id, sprite] of otherPlayers.entries()) {
+              if (!currentIds.has(id)) {
+                sprite.destroy();
+                otherPlayers.delete(id);
+              }
+            }
+          });
+        },
+
+        update() {
+          const socket = socketRef.current;
+          if (!socket) return;
+
+          const cursors = this.input.keyboard.createCursorKeys();
+          let dx = 0;
+          let dy = 0;
+
+          if (cursors.left?.isDown) dx = -4;
+          if (cursors.right?.isDown) dx = 4;
+          if (cursors.up?.isDown) dy = -4;
+          if (cursors.down?.isDown) dy = 4;
+
+          if (dx !== 0 || dy !== 0) {
+            playerRect.x += dx;
+            playerRect.y += dy;
+            socket.emit("move", { x: playerRect.x, y: playerRect.y });
+          }
+        },
+      },
+    };
+
+    game = new Phaser.Game(config);
+
+    return () => {
+      game.destroy(true);
+    };
+  }, [started]);
+
+  if (!started) {
+    return (
+      <main className="login-screen">
+        <div className="panel">
+          <div className="eyebrow">CITY LIFE</div>
+          <h1>Create your character</h1>
+          <p>Enter a name and start your life in the city.</p>
+
+          <label htmlFor="name">Character Name</label>
+          <input
+            id="name"
+            value={playerName}
+            onChange={(e) => setPlayerName(e.target.value || "Player")}
+            maxLength={18}
+            placeholder="Player"
+          />
+
+          <button onClick={() => setStarted(true)}>Start Game</button>
+        </div>
+      </main>
+    );
+  }
+
+  return (
+    <main className="game-shell">
+      <div className="hud">
+        <div className="hud-row">
+          <span>{playerState.name}</span>
+          <span>Lv {playerState.level}</span>
+          <span>Money: ${playerState.money}</span>
+          <span>Job: {playerState.job}</span>
+        </div>
+        <div className="stats-grid">
+          <div>Hunger: {playerState.hunger}</div>
+          <div>Energy: {playerState.energy}</div>
+          <div>Hygiene: {playerState.hygiene}</div>
+          <div>Fun: {playerState.fun}</div>
+          <div>Social: {playerState.social}</div>
+          <div>Bladder: {playerState.bladder}</div>
+        </div>
+      </div>
+      <div ref={gameRef} className="game-stage" />
+    </main>
+  );
 }
 
-* {
-  box-sizing: border-box;
-}

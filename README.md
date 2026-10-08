@@ -1,64 +1,95 @@
-# Life Sim Game Demo
+const express = require("express");
+const http = require("http");
+const cors = require("cors");
+const { Server } = require("socket.io");
 
-A multiplayer life simulation game prototype built with Next.js, Phaser, and Socket.IO.
+const app = express();
+app.use(cors());
 
-## Project structure
+const server = http.createServer(app);
+const io = new Server(server, {
+  cors: {
+    origin: "*",
+    methods: ["GET", "POST"],
+  },
+});
 
-- `src/app` – frontend game UI and Phaser canvas
-- `server` – multiplayer Socket.IO game server
+const players = new Map();
 
-## Local setup
+function makePlayer(name, socketId) {
+  return {
+    id: socketId,
+    name,
+    x: 120,
+    y: 120,
+    money: 2500,
+    level: 1,
+    experience: 0,
+    hunger: 100,
+    energy: 100,
+    hygiene: 100,
+    fun: 100,
+    social: 100,
+    bladder: 100,
+    job: "Unemployed",
+    location: "City Center",
+  };
+}
 
-1. Install project dependencies:
-   ```bash
-   npm install
-   ```
+io.on("connection", (socket) => {
+  console.log("Connected:", socket.id);
 
-2. Install server dependencies:
-   ```bash
-   cd server
-   npm install
-   ```
+  socket.on("create-player", ({ name } = {}) => {
+    const cleanName = String(name || "Player").trim().slice(0, 18) || "Player";
+    const existing = [...players.values()].find(
+      (p) => p.name.toLowerCase() === cleanName.toLowerCase()
+    );
 
-3. Start the game server:
-   ```bash
-   cd server
-   npm start
-   ```
+    const player = existing && existing.id !== socket.id
+      ? { ...existing, id: socket.id }
+      : makePlayer(cleanName, socket.id);
 
-4. Start the frontend:
-   ```bash
-   cd ..
-   npm run dev
-   ```
+    players.set(socket.id, player);
+    socket.emit("player-state", player);
+    io.emit("players-update", Array.from(players.values()));
+  });
 
-5. Open http://localhost:3000
+  socket.on("move", ({ x, y }) => {
+    const player = players.get(socket.id);
+    if (!player) return;
 
-## Phase 2: persistent player state
+    player.x = x;
+    player.y = y;
 
-This project now includes a PostgreSQL-ready Prisma schema for persistent player data and a fallback in-memory mode so the game still works without a database.
+    io.emit("players-update", Array.from(players.values()));
+  });
 
-### Database setup
+  socket.on("update-stats", (stats = {}) => {
+    const player = players.get(socket.id);
+    if (!player) return;
 
-Create a PostgreSQL database and add a `.env` file inside `server/`:
+    const next = {
+      ...player,
+      ...stats,
+    };
 
-```env
-DATABASE_URL="postgresql://postgres:postgres@localhost:5432/lifesim?schema=public"
-```
+    players.set(socket.id, next);
+    socket.emit("player-state", next);
+    io.emit("players-update", Array.from(players.values()));
+  });
 
-Then run:
+  socket.on("disconnect", () => {
+    players.delete(socket.id);
+    io.emit("players-update", Array.from(players.values()));
+    console.log("Disconnected:", socket.id);
+  });
+});
 
-```bash
-cd server
-npx prisma generate
-npx prisma db push
-```
+app.get("/health", (req, res) => {
+  res.json({ status: "ok" });
+});
 
-## Notes
+server.listen(3001, () => {
+  console.log("Game server running on http://localhost:3001");
+});
 
-This starter prototype includes:
-- Phaser canvas
-- Socket.IO movement sync
-- multiplayer updates
-- basic persistent player state using Prisma
-- in-memory fallback for local testing without a running database
