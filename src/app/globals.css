@@ -23,6 +23,27 @@ type PlayerState = {
   status: string;
 };
 
+type InventoryItem = {
+  name: string;
+  quantity: number;
+  value: number;
+};
+
+type Quest = {
+  id: string;
+  title: string;
+  progress: number;
+  goal: number;
+  completed: boolean;
+};
+
+type GameData = {
+  player: PlayerState;
+  inventory: InventoryItem[];
+  quests: Quest[];
+  message: string;
+};
+
 const clamp = (value: number, min: number, max: number) =>
   Math.min(Math.max(value, min), max);
 
@@ -31,24 +52,34 @@ export default function Home() {
   const socketRef = useRef<any>(null);
   const [playerName, setPlayerName] = useState("Player");
   const [started, setStarted] = useState(false);
-  const [playerState, setPlayerState] = useState<PlayerState>({
-    name: "Player",
-    x: 120,
-    y: 120,
-    money: 2500,
-    level: 1,
-    experience: 0,
-    hunger: 100,
-    energy: 100,
-    hygiene: 100,
-    fun: 100,
-    social: 100,
-    bladder: 100,
-    job: "Unemployed",
-    location: "City Center",
-    status: "Ready",
+  const [gameData, setGameData] = useState<GameData>({
+    player: {
+      name: "Player",
+      x: 120,
+      y: 120,
+      money: 2500,
+      level: 1,
+      experience: 0,
+      hunger: 100,
+      energy: 100,
+      hygiene: 100,
+      fun: 100,
+      social: 100,
+      bladder: 100,
+      job: "Unemployed",
+      location: "City Center",
+      status: "Ready",
+    },
+    inventory: [
+      { name: "Coffee", quantity: 1, value: 12 },
+      { name: "Snack", quantity: 1, value: 8 },
+    ],
+    quests: [
+      { id: "q1", title: "Earn your first $100", progress: 0, goal: 100, completed: false },
+      { id: "q2", title: "Keep your needs above 50", progress: 100, goal: 100, completed: true },
+    ],
+    message: "Welcome to the city.",
   });
-  const [statusMessage, setStatusMessage] = useState("Welcome to the city.");
 
   useEffect(() => {
     if (!started) return;
@@ -58,19 +89,8 @@ export default function Home() {
 
     socket.emit("create-player", { name: playerName });
 
-    socket.on("player-state", (state: PlayerState) => {
-      setPlayerState(state);
-    });
-
-    socket.on("status-message", (message: string) => {
-      setStatusMessage(message);
-    });
-
-    socket.on("players-update", (players: any[]) => {
-      const me = players.find((p) => p.id === socket.id);
-      if (me) {
-        setPlayerState({ ...me });
-      }
+    socket.on("game-state", (state: GameData) => {
+      setGameData(state);
     });
 
     return () => {
@@ -175,11 +195,13 @@ export default function Home() {
     };
   }, [started]);
 
-  const sendAction = (action: string) => {
+  const sendAction = (action: string, payload?: any) => {
     const socket = socketRef.current;
     if (!socket) return;
-    socket.emit(action);
+    socket.emit(action, payload);
   };
+
+  const player = gameData.player;
 
   if (!started) {
     return (
@@ -208,21 +230,21 @@ export default function Home() {
     <main className="game-shell">
       <div className="hud">
         <div className="hud-row">
-          <span>{playerState.name}</span>
-          <span>Lv {playerState.level}</span>
-          <span>Money: ${playerState.money}</span>
-          <span>Job: {playerState.job}</span>
-          <span>Location: {playerState.location}</span>
+          <span>{player.name}</span>
+          <span>Lv {player.level}</span>
+          <span>Money: ${player.money}</span>
+          <span>Job: {player.job}</span>
+          <span>Location: {player.location}</span>
         </div>
 
         <div className="stats-grid">
-          <div>Hunger: {playerState.hunger}</div>
-          <div>Energy: {playerState.energy}</div>
-          <div>Hygiene: {playerState.hygiene}</div>
-          <div>Fun: {playerState.fun}</div>
-          <div>Social: {playerState.social}</div>
-          <div>Bladder: {playerState.bladder}</div>
-          <div>XP: {playerState.experience}</div>
+          <div>Hunger: {player.hunger}</div>
+          <div>Energy: {player.energy}</div>
+          <div>Hygiene: {player.hygiene}</div>
+          <div>Fun: {player.fun}</div>
+          <div>Social: {player.social}</div>
+          <div>Bladder: {player.bladder}</div>
+          <div>XP: {player.experience}</div>
         </div>
       </div>
 
@@ -235,9 +257,41 @@ export default function Home() {
         <button onClick={() => sendAction("save")}>Save</button>
       </div>
 
+      <div className="action-bar secondary">
+        <button onClick={() => sendAction("apply-job", { job: "Freelance Developer" })}>Developer</button>
+        <button onClick={() => sendAction("apply-job", { job: "Courier" })}>Courier</button>
+        <button onClick={() => sendAction("apply-job", { job: "Barista" })}>Barista</button>
+        <button onClick={() => sendAction("buy-item", { item: "Coffee" })}>Buy Coffee</button>
+        <button onClick={() => sendAction("buy-item", { item: "Snack" })}>Buy Snack</button>
+      </div>
+
+      <div className="dashboard-grid">
+        <div className="panel-box">
+          <h3>Inventory</h3>
+          <ul>
+            {gameData.inventory.map((item) => (
+              <li key={item.name}>
+                {item.name} x{item.quantity} — ${item.value}
+              </li>
+            ))}
+          </ul>
+        </div>
+
+        <div className="panel-box">
+          <h3>Quest Log</h3>
+          <ul>
+            {gameData.quests.map((quest) => (
+              <li key={quest.id} className={quest.completed ? "done" : ""}>
+                {quest.title} ({quest.progress}/{quest.goal})
+              </li>
+            ))}
+          </ul>
+        </div>
+      </div>
+
       <div className="status-panel">
-        <strong>Status:</strong> {playerState.status}
-        <span>{statusMessage}</span>
+        <strong>Status:</strong> {player.status}
+        <span>{gameData.message}</span>
       </div>
 
       <div ref={gameRef} className="game-stage" />

@@ -44,12 +44,13 @@ input {
   font-weight: 700;
 }
 
-h1 {
+h1,
+h3 {
   margin: 12px 0 8px;
-  font-size: clamp(2rem, 5vw, 2.8rem);
 }
 
-p {
+p,
+ul {
   margin: 0 0 22px;
   color: #cbd5e1;
 }
@@ -131,9 +132,43 @@ button {
   margin-bottom: 12px;
 }
 
+.action-bar.secondary {
+  margin-top: -4px;
+}
+
 .action-bar button {
   height: 44px;
   background: linear-gradient(135deg, #1d4ed8, #2563eb);
+}
+
+.dashboard-grid {
+  width: min(1200px, 96vw);
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.panel-box {
+  background: rgba(15, 23, 42, 0.8);
+  border: 1px solid rgba(148, 163, 184, 0.2);
+  border-radius: 12px;
+  padding: 12px 14px;
+}
+
+.panel-box ul {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.panel-box li {
+  margin: 8px 0;
+  color: #dbeafe;
+}
+
+.panel-box .done {
+  color: #86efac;
 }
 
 .status-panel {
@@ -171,7 +206,8 @@ canvas {
   }
 
   .hud,
-  .status-panel {
+  .status-panel,
+  .panel-box {
     padding: 12px 14px;
   }
 }
