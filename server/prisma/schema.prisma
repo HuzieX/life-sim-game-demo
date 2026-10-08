@@ -8,20 +8,25 @@ datasource db {
 }
 
 model Player {
-  id        String   @id @default(cuid())
-  name      String   @unique
-  money     Int      @default(0)
-  level     Int      @default(1)
-  experience Int    @default(0)
-  x         Float    @default(120)
-  y         Float    @default(120)
-  location  String   @default("city")
-  hunger    Int      @default(100)
-  energy    Int      @default(100)
-  hygiene   Int      @default(100)
-  fun       Int      @default(100)
-  social    Int      @default(100)
-  bladder   Int      @default(100)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id          String   @id @default(cuid())
+  name        String   @unique
+  money       Int      @default(2500)
+  level       Int      @default(1)
+  experience  Int      @default(0)
+  x           Float    @default(120)
+  y           Float    @default(120)
+  location    String   @default("City Center")
+  hunger      Int      @default(100)
+  energy      Int      @default(100)
+  hygiene     Int      @default(100)
+  fun         Int      @default(100)
+  social      Int      @default(100)
+  bladder     Int      @default(100)
+  job         String   @default("Unemployed")
+  status      String   @default("Ready")
+  message     String   @default("Welcome to the city.")
+  inventory   Json?    @default("[]")
+  quests      Json?    @default("[]")
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
 }
