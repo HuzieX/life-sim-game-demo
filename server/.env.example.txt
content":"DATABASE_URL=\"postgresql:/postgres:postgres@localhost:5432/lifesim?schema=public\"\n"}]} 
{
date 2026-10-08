@@ -1,0 +1,129 @@
+const express = require("express");
+const http = require("http");
+const cors = require("cors");
+const { Server } = require("socket.io");
+const { prisma } = require("./db");
+
+const app = express();
+app.use(cors());
+
+const server = http.createServer(app);
+const io = new Server(server, {
+  cors: {
+    origin: "*",
+    methods: ["GET", "POST"],
+  },
+});
+
+const players = new Map();
+
+const createDefaultPlayer = (name = "Player") => ({
+  id: null,
+  name,
+  x: 120,
+  y: 120,
+  money: 0,
+  level: 1,
+  experience: 0,
+  hunger: 100,
+  energy: 100,
+  hygiene: 100,
+  fun: 100,
+  social: 100,
+  bladder: 100,
+});
+
+async function savePlayerState(player) {
+  if (!prisma) return;
+
+  const payload = {
+    name: player.name,
+    x: player.x,
+    y: player.y,
+    money: player.money,
+    level: player.level,
+    experience: player.experience,
+    hunger: player.hunger,
+    energy: player.energy,
+    hygiene: player.hygiene,
+    fun: player.fun,
+    social: player.social,
+    bladder: player.bladder,
+  };
+
+  try {
+    await prisma.player.upsert({
+      where: { name: player.name },
+      update: payload,
+      create: payload,
+    });
+  } catch (error) {
+    console.error("Failed to save player state:", error.message);
+  }
+}
+
+io.on("connection", (socket) => {
+  console.log("Connected:", socket.id);
+
+  socket.on("join-game", async (playerData = {}) => {
+    const name = playerData.name || "Player";
+    const player = {
+      ...createDefaultPlayer(name),
+      id: socket.id,
+    };
+
+    players.set(socket.id, player);
+
+    if (prisma) {
+      try {
+        const dbPlayer = await prisma.player.findUnique({ where: { name } });
+        if (dbPlayer) {
+          const savedPlayer = {
+            ...player,
+            x: dbPlayer.x,
+            y: dbPlayer.y,
+            money: dbPlayer.money,
+            level: dbPlayer.level,
+            experience: dbPlayer.experience,
+            hunger: dbPlayer.hunger,
+            energy: dbPlayer.energy,
+            hygiene: dbPlayer.hygiene,
+            fun: dbPlayer.fun,
+            social: dbPlayer.social,
+            bladder: dbPlayer.bladder,
+          };
+          players.set(socket.id, savedPlayer);
+        }
+      } catch (error) {
+        console.error("Failed to load player from DB:", error.message);
+      }
+    }
+
+    io.emit("players-update", Array.from(players.values()));
+  });
+
+  socket.on("move", async ({ x, y }) => {
+    const player = players.get(socket.id);
+    if (!player) return;
+
+    player.x = x;
+    player.y = y;
+
+    await savePlayerState(player);
+    io.emit("players-update", Array.from(players.values()));
+  });
+
+  socket.on("disconnect", () => {
+    players.delete(socket.id);
+    io.emit("players-update", Array.from(players.values()));
+    console.log("Disconnected:", socket.id);
+  });
+});
+
+app.get("/health", (req, res) => {
+  res.json({ status: "ok" });
+});
+
+server.listen(3001, () => {
+  console.log("Game server running on http://localhost:3001");
+});

@@ -34,10 +34,31 @@ A multiplayer life simulation game prototype built with Next.js, Phaser, and Soc
 
 5. Open http://localhost:3000
 
+## Phase 2: persistent player state
+
+This project now includes a PostgreSQL-ready Prisma schema for persistent player data and a fallback in-memory mode so the game still works without a database.
+
+### Database setup
+
+Create a PostgreSQL database and add a `.env` file inside `server/`:
+
+```env
+DATABASE_URL="postgresql://postgres:postgres@localhost:5432/lifesim?schema=public"
+```
+
+Then run:
+
+```bash
+cd server
+npx prisma generate
+npx prisma db push
+```
+
 ## Notes
 
-This is a starter prototype for a life-sim multiplayer game. It includes:
+This starter prototype includes:
 - Phaser canvas
 - Socket.IO movement sync
-- basic player updates between clients
-- server/client architecture foundation
+- multiplayer updates
+- basic persistent player state using Prisma
+- in-memory fallback for local testing without a running database
