@@ -4,7 +4,7 @@ body {
   padding: 0;
   min-height: 100%;
   font-family: Arial, Helvetica, sans-serif;
-  background: #0f172a;
+  background: #020817;
   color: #e2e8f0;
 }
 
@@ -123,6 +123,34 @@ button {
   font-size: 0.92rem;
 }
 
+.action-bar {
+  width: min(1200px, 96vw);
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+  gap: 10px;
+  margin-bottom: 12px;
+}
+
+.action-bar button {
+  height: 44px;
+  background: linear-gradient(135deg, #1d4ed8, #2563eb);
+}
+
+.status-panel {
+  width: min(1200px, 96vw);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 16px;
+  border-radius: 12px;
+  background: rgba(15, 23, 42, 0.8);
+  border: 1px solid rgba(148, 163, 184, 0.2);
+  margin-bottom: 12px;
+  color: #cbd5e1;
+  flex-wrap: wrap;
+}
+
 .game-stage {
   width: min(1200px, 96vw);
   overflow: hidden;
@@ -142,7 +170,8 @@ canvas {
     padding: 22px 18px;
   }
 
-  .hud {
+  .hud,
+  .status-panel {
     padding: 12px 14px;
   }
 }

@@ -20,7 +20,11 @@ type PlayerState = {
   bladder: number;
   job: string;
   location: string;
+  status: string;
 };
+
+const clamp = (value: number, min: number, max: number) =>
+  Math.min(Math.max(value, min), max);
 
 export default function Home() {
   const gameRef = useRef<HTMLDivElement | null>(null);
@@ -42,7 +46,9 @@ export default function Home() {
     bladder: 100,
     job: "Unemployed",
     location: "City Center",
+    status: "Ready",
   });
+  const [statusMessage, setStatusMessage] = useState("Welcome to the city.");
 
   useEffect(() => {
     if (!started) return;
@@ -54,6 +60,10 @@ export default function Home() {
 
     socket.on("player-state", (state: PlayerState) => {
       setPlayerState(state);
+    });
+
+    socket.on("status-message", (message: string) => {
+      setStatusMessage(message);
     });
 
     socket.on("players-update", (players: any[]) => {
@@ -72,7 +82,7 @@ export default function Home() {
     if (!started || !gameRef.current) return;
 
     let playerRect: Phaser.GameObjects.Rectangle;
-    let otherPlayers = new Map<string, Phaser.GameObjects.Rectangle>();
+    const otherPlayers = new Map<string, Phaser.GameObjects.Rectangle>();
     let game: Phaser.Game;
 
     const config: Phaser.Types.Core.GameConfig = {
@@ -87,11 +97,17 @@ export default function Home() {
           graphics.fillStyle(0x2d6cdf, 1);
           graphics.fillRect(0, 0, 960, 600);
 
-          graphics.fillStyle(0x0f172a, 0.65);
-          graphics.fillRect(0, 0, 960, 70);
+          graphics.fillStyle(0x0f172a, 0.7);
+          graphics.fillRect(0, 0, 960, 72);
+
+          graphics.fillStyle(0x334155, 1);
+          graphics.fillRect(120, 120, 200, 120);
+          graphics.fillRect(420, 180, 180, 140);
+          graphics.fillRect(650, 220, 180, 120);
+          graphics.fillRect(360, 420, 220, 110);
 
           playerRect = this.add.rectangle(120, 120, 24, 24, 0x7dd3fc);
-          this.add.text(20, 20, "Life Sim Demo", {
+          this.add.text(20, 20, "Life Sim City", {
             fontSize: "26px",
             color: "#e2e8f0",
             fontFamily: "Arial",
@@ -106,8 +122,8 @@ export default function Home() {
               currentIds.add(p.id);
 
               if (p.id === socket.id) {
-                playerRect.x = p.x;
-                playerRect.y = p.y;
+                playerRect.x = clamp(p.x, 40, 920);
+                playerRect.y = clamp(p.y, 90, 560);
                 return;
               }
 
@@ -116,8 +132,8 @@ export default function Home() {
                 otherPlayers.set(p.id, sprite);
               } else {
                 const sprite = otherPlayers.get(p.id)!;
-                sprite.x = p.x;
-                sprite.y = p.y;
+                sprite.x = clamp(p.x, 40, 920);
+                sprite.y = clamp(p.y, 90, 560);
               }
             });
 
@@ -144,8 +160,8 @@ export default function Home() {
           if (cursors.down?.isDown) dy = 4;
 
           if (dx !== 0 || dy !== 0) {
-            playerRect.x += dx;
-            playerRect.y += dy;
+            playerRect.x = clamp(playerRect.x + dx, 40, 920);
+            playerRect.y = clamp(playerRect.y + dy, 90, 560);
             socket.emit("move", { x: playerRect.x, y: playerRect.y });
           }
         },
@@ -159,13 +175,19 @@ export default function Home() {
     };
   }, [started]);
 
+  const sendAction = (action: string) => {
+    const socket = socketRef.current;
+    if (!socket) return;
+    socket.emit(action);
+  };
+
   if (!started) {
     return (
       <main className="login-screen">
         <div className="panel">
           <div className="eyebrow">CITY LIFE</div>
           <h1>Create your character</h1>
-          <p>Enter a name and start your life in the city.</p>
+          <p>Build your lifestyle, earn money, and grow in the city.</p>
 
           <label htmlFor="name">Character Name</label>
           <input
@@ -190,7 +212,9 @@ export default function Home() {
           <span>Lv {playerState.level}</span>
           <span>Money: ${playerState.money}</span>
           <span>Job: {playerState.job}</span>
+          <span>Location: {playerState.location}</span>
         </div>
+
         <div className="stats-grid">
           <div>Hunger: {playerState.hunger}</div>
           <div>Energy: {playerState.energy}</div>
@@ -198,8 +222,24 @@ export default function Home() {
           <div>Fun: {playerState.fun}</div>
           <div>Social: {playerState.social}</div>
           <div>Bladder: {playerState.bladder}</div>
+          <div>XP: {playerState.experience}</div>
         </div>
       </div>
+
+      <div className="action-bar">
+        <button onClick={() => sendAction("work")}>Work</button>
+        <button onClick={() => sendAction("eat")}>Eat</button>
+        <button onClick={() => sendAction("rest")}>Rest</button>
+        <button onClick={() => sendAction("shower")}>Shower</button>
+        <button onClick={() => sendAction("socialize")}>Socialize</button>
+        <button onClick={() => sendAction("save")}>Save</button>
+      </div>
+
+      <div className="status-panel">
+        <strong>Status:</strong> {playerState.status}
+        <span>{statusMessage}</span>
+      </div>
+
       <div ref={gameRef} className="game-stage" />
     </main>
   );
